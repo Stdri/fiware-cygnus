@@ -33,14 +33,15 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParser;
+import com.telefonica.iot.cygnus.backends.arcgis.model.Feature;
+import com.telefonica.iot.cygnus.backends.arcgis.restutils.ArcgisBaseTest;
+import com.telefonica.iot.cygnus.backends.arcgis.restutils.NGSIArcgisFeatureTable;
 import com.telefonica.iot.cygnus.interceptors.NGSIEvent;
 import com.telefonica.iot.cygnus.log.CygnusLogger;
-import com.telefonica.iot.cygnus.utils.FeatureArcGisUtils;
-import com.telefonica.iot.cygnus.utils.NGSIArcgisFeatureTable;
 import com.telefonica.iot.cygnus.utils.NGSIConstants;
 import com.telefonica.iot.cygnus.utils.NGSIUtilsForTests;
-
-import es.santander.smartcity.model.Feature;
 
 /**
  *
@@ -49,91 +50,132 @@ import es.santander.smartcity.model.Feature;
 @RunWith(MockitoJUnitRunner.class)
 public class NGSIArcGisSinkTest {
 
-    private static final CygnusLogger LOGGER = new CygnusLogger(NGSIArcGisSinkTest.class);
-    private NGSIArcgisFeatureTableSink sink;
+	private static final CygnusLogger LOGGER = new CygnusLogger(NGSIArcGisSinkTest.class);
+	private NGSIArcgisFeatureTableSink sink;
 
-    @Mock
-    private NGSIArcgisFeatureTable mockArcgisLog;
-    
-    @Mock
-    private FeatureArcGisUtils mockEntityArcGisUtils;
+	@Mock
+	private NGSIArcgisFeatureTable mockArcgisLog;
 
-    /**
-     * Constructor.
-     */
-    public NGSIArcGisSinkTest() {
-    } // NGSIArcGisSinkTest
+	public class SinkTest extends NGSIArcgisFeatureTableSink {
+		public SinkTest() {
+		}
 
-    /**
-     * @throws Exception
-     * 
-     */
-    @Before
-    public void setup() throws Exception {
-        Mockito.doNothing().when(mockArcgisLog).addToBatch(Mockito.any(Feature.class));
-        Mockito.doNothing().when(mockArcgisLog).addToBatch(Mockito.anyList());
-        Mockito.when(mockArcgisLog.connected()).thenReturn(true);
-        
-    } // setup
+		/*
+		 * (non-Javadoc)
+		 * 
+		 * @see com.telefonica.iot.cygnus.sinks.NGSIArcgisFeatureTableSink#
+		 * jsonElementToFeatureAttr(java.lang.String, java.lang.String,
+		 * com.google.gson.JsonElement, es.santander.smartcity.model.Feature)
+		 */
+		@Override
+		public void jsonElementToFeatureAttr(String attrName, String attrType, JsonElement attrValue, Feature feature) {
+			super.jsonElementToFeatureAttr(attrName, attrType, attrValue, feature);
+		}
 
-    /**
-     * [NGSIArcGisSink.insertFeature] -------- When service-path is notified,
-     * NGSIArcGisSink send entities to GIS.
-     */
-    @Test
-    public void testInsertFeature() {
-        LOGGER.debug(getTestTraceHead("[NGSIArcGISBaseSink.insertFeature]")
-                + "-------- When / service-path is notified/defaulted, NGSIArcGisSink send entities to GIS.");
+	}
 
-        try {
-            String bodyJSON = "{\"id\": \"Car1\", \"type\": \"Car\", "
-                    + "\"location\": { \"type\": \"geo:json\" \"value\": "
-                    + "{\"type\": \"Point\", \"coordinates\": [-3.79109661, 43.48712556]}}, "
-                    + " \"speed\": { \"type\":\"Float\", \"value\": 98 } }";
-            String serviceFiware = "service";
-            String servicePathFiware = "/test";
-            
-            Map<String, String> headers = new HashMap<String, String>();
-            headers.put(NGSIConstants.FLUME_HEADER_MAPPED_SERVICE, serviceFiware);
-            headers.put(NGSIConstants.FLUME_HEADER_MAPPED_SERVICE_PATH, servicePathFiware);
+	/**
+	 * Constructor.
+	 */
+	public NGSIArcGisSinkTest() {
+	} // NGSIArcGisSinkTest
 
-            String url = "XXXXXX";
-            String username = "XXXXXX";
-            String password = "XXXXXX";
+	/**
+	 * @throws Exception
+	 * 
+	 */
+	@Before
+	public void setup() throws Exception {
+		Mockito.doNothing().when(mockArcgisLog).addToBatch(Mockito.any(Feature.class));
+		Mockito.doNothing().when(mockArcgisLog).addToBatch(Mockito.anyList());
+		Mockito.when(mockArcgisLog.connected()).thenReturn(true);
 
-            sink = new NGSIArcgisFeatureTableSink();
-            
-            Context context = NGSIUtilsForTests.createContextForArcGis(url, username, password);
-            sink.configure(context);
+	} // setup
 
-            JSONParser jsonParser = new JSONParser();
-            JSONObject json = (JSONObject) jsonParser.parse(bodyJSON);
-            
-            NGSIArcgisFeatureTableSink.ArcgisAggregatorDomain arcGisDomain = null;
-            String serviceUrl = "127.0.0.1/services";
-            
-            NGSIArcgisFeatureTableSink.NGSIArcgisAggregator aggregator = sink.new NGSIArcgisAggregator(serviceUrl,false);
-            NGSIEvent event = null;
-            //TODO generar evento para el test
-//            event = new NGSIEvent(headers, bodyJSON.getBytes(), context, context);
-            
-            aggregator.aggregate(event);
-            try {
-                sink.persistAggregation(aggregator);
-                assertTrue(true);
-                LOGGER.debug(getTestTraceHead("[NGSIArcGisSink.insertFeeature]") + "-  OKs");
-            } catch (AssertionError e) {
-                LOGGER.error(getTestTraceHead("[NGSIArcGisSink.insertFeeature]") + "- FAIL");
-                throw e;
-            } // try catch
-        } catch (Exception e) {
-            e.printStackTrace();
-            LOGGER.error(getTestTraceHead("[NGSIArcGisSink.insertFeeature]") + "- FAIL");
-            
-            assertTrue(true); // TODO PONER A FALSE !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-            
-        } // catch
+	/**
+	 * [NGSIArcGisSink.pointToFeatureAttr] -------- geo:json point parsed to
+	 * feature attribute.
+	 */
+	@Test
+	public void pointToFeatureAttr() {
+		LOGGER.debug(getTestTraceHead("[NGSIArcGISBaseSink.insertFeature]")
+				+ "-------- geo:json point parsed to feature attribute");
 
-    } // testInsertFeature
+		NGSIArcgisFeatureTableSink sink = new SinkTest();
+
+		String geoPoint = "{\"coordinates\":[-3.798105176,43.464492254],\"type\":\"Point\"}";
+
+		JsonParser parser = new JsonParser();
+		JsonElement jsonElement = parser.parse(geoPoint);
+		Feature feature = Feature.createPointFeature(0, 0);
+
+		sink.jsonElementToFeatureAttr("name", "geo:json", jsonElement, feature);
+
+		String featureTableUrl = "https://services5.arcgis.com//398f12mJiCbJeoAQ//arcgis/rest/services/OcupacionDummy/FeatureServer/0";
+		featureTableUrl = featureTableUrl.replaceAll("([^:])\\/\\/", "$1/");
+
+		System.out.println(featureTableUrl);
+
+		assertTrue(feature.getGeometry() != null);
+	}
+
+	/**
+	 * [NGSIArcGisSink.insertFeature] -------- When service-path is notified,
+	 * NGSIArcGisSink send entities to GIS.
+	 */
+	@Test
+	public void testInsertFeature() {
+		LOGGER.debug(getTestTraceHead("[NGSIArcGISBaseSink.insertFeature]")
+				+ "-------- When / service-path is notified/defaulted, NGSIArcGisSink send entities to GIS.");
+
+		try {
+			String bodyJSON = "{\"id\": \"Car1\", \"type\": \"Car\", "
+					+ "\"location\": { \"type\": \"geo:json\" \"value\": "
+					+ "{\"type\": \"Point\", \"coordinates\": [-3.79109661, 43.48712556]}}, "
+					+ " \"speed\": { \"type\":\"Float\", \"value\": 98 } }";
+			String serviceFiware = "service";
+			String servicePathFiware = "/test";
+
+			Map<String, String> headers = new HashMap<String, String>();
+			headers.put(NGSIConstants.FLUME_HEADER_MAPPED_SERVICE, serviceFiware);
+			headers.put(NGSIConstants.FLUME_HEADER_MAPPED_SERVICE_PATH, servicePathFiware);
+
+			String url = ArcgisBaseTest.getFeatureUrl();
+			String username = ArcgisBaseTest.getUser();
+			String password = ArcgisBaseTest.getPassword();
+
+			sink = new NGSIArcgisFeatureTableSink();
+
+			Context context = NGSIUtilsForTests.createContextForArcGis(url, username, password);
+			sink.configure(context);
+
+			JSONParser jsonParser = new JSONParser();
+			JSONObject json = (JSONObject) jsonParser.parse(bodyJSON);
+
+			NGSIArcgisFeatureTableSink.ArcgisAggregatorDomain arcGisDomain = null;
+			String serviceUrl = "127.0.0.1/services";
+
+			NGSIArcgisFeatureTableSink.NGSIArcgisAggregator aggregator = sink.new NGSIArcgisAggregator(serviceUrl,
+					false);
+			NGSIEvent event = null;
+
+			aggregator.aggregate(event);
+			try {
+				sink.persistAggregation(aggregator);
+				assertTrue(true);
+				LOGGER.debug(getTestTraceHead("[NGSIArcGisSink.insertFeeature]") + "-  OKs");
+			} catch (AssertionError e) {
+				LOGGER.error(getTestTraceHead("[NGSIArcGisSink.insertFeeature]") + "- FAIL");
+				throw e;
+			} // try catch
+		} catch (Exception e) {
+			e.printStackTrace();
+			LOGGER.error(getTestTraceHead("[NGSIArcGisSink.insertFeeature]") + "- FAIL");
+
+			assertTrue(false);
+
+		} // catch
+
+	} // testInsertFeature
 
 } // NGSIArcGisSinkTest

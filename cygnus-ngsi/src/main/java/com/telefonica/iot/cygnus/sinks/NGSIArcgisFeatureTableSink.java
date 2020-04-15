@@ -22,6 +22,7 @@ import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +37,10 @@ import org.json.JSONException;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.telefonica.iot.cygnus.backends.arcgis.model.Feature;
+import com.telefonica.iot.cygnus.backends.arcgis.model.Point;
+import com.telefonica.iot.cygnus.backends.arcgis.restutils.ArcgisFeatureTable;
+import com.telefonica.iot.cygnus.backends.arcgis.restutils.NGSIArcgisFeatureTable;
 import com.telefonica.iot.cygnus.containers.NotifyContextRequest.ContextAttribute;
 import com.telefonica.iot.cygnus.containers.NotifyContextRequest.ContextElement;
 import com.telefonica.iot.cygnus.errors.CygnusBadConfiguration;
@@ -46,12 +51,7 @@ import com.telefonica.iot.cygnus.errors.CygnusPersistenceError;
 import com.telefonica.iot.cygnus.errors.CygnusRuntimeError;
 import com.telefonica.iot.cygnus.interceptors.NGSIEvent;
 import com.telefonica.iot.cygnus.log.CygnusLogger;
-import com.telefonica.iot.cygnus.utils.NGSIArcgisFeatureTable;
 import com.telefonica.iot.cygnus.utils.NGSIConstants;
-
-import es.santander.smartcity.ArcgisRestUtils.ArcgisFeatureTable;
-import es.santander.smartcity.model.Feature;
-import es.santander.smartcity.model.Point;
 
 /**
  *
@@ -77,10 +77,7 @@ public class NGSIArcgisFeatureTableSink extends NGSISink {
     private String password;
     private int maxBatchSize;
     private long timeoutSecs;
-    // private boolean rowAttrPersistence;
     private static volatile Map<String, NGSIArcgisFeatureTable> arcgisPersistenceBackend;
-    // private boolean attrNativeTypes;
-    // private boolean attrMetadataStore;
 
     /**
      * Constructor.
@@ -99,7 +96,7 @@ public class NGSIArcgisFeatureTableSink extends NGSISink {
     } // getrAcgisServicesUrl
 
     /**
-     * Gets getToken service url.
+     * Gets getToken's service url.
      * 
      * @return
      */
@@ -133,6 +130,21 @@ public class NGSIArcgisFeatureTableSink extends NGSISink {
     protected String getPassword() {
         return password;
     } // getPassword
+
+    /**
+     * 
+     */
+    protected int featuresBatched() {
+        int total = 0;
+        for (Map.Entry<String, NGSIArcgisFeatureTable> entry : arcgisPersistenceBackend.entrySet()) {
+            NGSIArcgisFeatureTable table = entry.getValue();
+            if (table != null) {
+                total += table.featuresBatched();
+            }
+        }
+
+        return total;
+    }
 
     /**
      * Returns the persistence backend. It is protected due to it is only required for testing purposes.
@@ -307,7 +319,13 @@ public class NGSIArcgisFeatureTableSink extends NGSISink {
     @Override
     public Status process() throws EventDeliveryException {
         checkTimeouts();
-        return super.process();
+        Status status = null;
+        try {
+            status = super.process();
+        } catch (Throwable e) {
+            LOGGER.error(e.getMessage() + "Stack trace: " + Arrays.toString(e.getStackTrace()));
+        }
+        return status;
     }
 
     /**
@@ -324,7 +342,8 @@ public class NGSIArcgisFeatureTableSink extends NGSISink {
             }
         }
         if (!timeoutFound) {
-            LOGGER.debug("[" + this.getName() + "] No Feature table Timeouts found.");
+            LOGGER.debug("[" + this.getName() + "] No Feature table Timeouts found. Features in batch: "
+                    + featuresBatched());
         }
     }
 
