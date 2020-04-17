@@ -18,8 +18,16 @@
 package com.telefonica.iot.cygnus.containers;
 
 import java.util.ArrayList;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
+import com.jayway.jsonpath.DocumentContext;
+import com.jayway.jsonpath.JsonPath;
+import com.jayway.jsonpath.PathNotFoundException;
 import com.telefonica.iot.cygnus.log.CygnusLogger;
 
 /**
@@ -447,7 +455,7 @@ public class NameMappings {
          * Constructor.
          */
         public EntityMapping() {
-            attributeMappings = new ArrayList<>();
+            attributeMappings = new ArrayList<AttributeMapping>();
         } // EntityMapping
         
         public ArrayList<AttributeMapping> getAttributeMappings() {
@@ -591,17 +599,23 @@ public class NameMappings {
      */
     public class AttributeMapping {
         
+        private static final String JSONPATH_PATTERN_STR = "^(\\w*[^\\\\])\\.([^*+?].+)";
+        private JsonParser jsonParser;
+        
         private String originalAttributeName;
         private Pattern originalAttributeNamePattern;
         private String originalAttributeType;
         private Pattern originalAttributeTypePattern;
         private String newAttributeName;
         private String newAttributeType;
+        private String jsonPath;
+        private boolean isJsonPath;
         
         /**
          * Constructor.
          */
         public AttributeMapping() {
+            isJsonPath = false;
         } // AttributeMapping
         
         public String getOriginalAttributeName() {
@@ -627,15 +641,67 @@ public class NameMappings {
         public Pattern getOriginalAttributeTypePattern() {
             return originalAttributeTypePattern;
         } // getOriginalAttributeTypePattern
+          
+        public boolean isJsonPath() {
+            return isJsonPath;
+        } // isJsonPath
+        
+        /**
+         * Maps value if it's JsonPath mapping.
+         * @param originalValue
+         * @return
+         */
+        public JsonElement getMappedValue (JsonElement originalValue){
+            JsonElement result = originalValue;
+            
+            if(isJsonPath() && originalValue != null && originalValue.isJsonObject()){
+                String attValue = originalValue.toString();
+                DocumentContext attContext = JsonPath.parse(attValue);
+
+                try{
+                    String resultValue = attContext.read(jsonPath);
+                    LOGGER.debug ( "[NameMappings] mappedValue: " + newAttributeName + ": " + resultValue);
+                    result = jsonParser.parse(resultValue);
+                }catch(JsonParseException|PathNotFoundException e){
+                    LOGGER.error("[NameMappings]  Unable to map attribute: " + originalAttributeName + " jsonPath: " + jsonPath);
+                    LOGGER.error("[NameMappings]      From Json value: " + attValue );
+                    LOGGER.error("[NameMappings] Error: " + e.getMessage());
+                    result = JsonNull.INSTANCE;
+                }
+            }
+            
+            return result;
+        }
         
         /**
          * Compiles the regular expressions into Java Patterns.
          */
         public void compilePatterns() {
-            originalAttributeNamePattern = Pattern.compile(originalAttributeName);
+            
             originalAttributeTypePattern = Pattern.compile(originalAttributeType);
+            
+
+            Pattern isJsonPathPattern = Pattern.compile(JSONPATH_PATTERN_STR);
+            
+            Matcher jsonPathMatcher = isJsonPathPattern.matcher(originalAttributeName);
+            isJsonPath = jsonPathMatcher.matches();
+            
+            if (isJsonPath){
+                LOGGER.debug("[NameMappings] Compile Attribute mapping patterns as JsonPath");
+                originalAttributeNamePattern = Pattern.compile(jsonPathMatcher.group(1));
+                jsonPath = "$." + jsonPathMatcher.group(2);
+
+                LOGGER.debug("[NameMappings] Original att name: " + jsonPathMatcher.group(1));
+                LOGGER.debug("[NameMappings] JsonPath expression: " + jsonPath);
+            } else {
+                originalAttributeNamePattern = Pattern.compile(originalAttributeName);
+            }
+            
+            if(jsonParser == null ) {
+                jsonParser = new JsonParser();
+            }
         } // compilePatterns
-        
+                
         @Override
         public String toString() {
             String attrMappingStr =
