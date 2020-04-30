@@ -48,6 +48,7 @@ import com.telefonica.iot.cygnus.log.CygnusLogger;
  */
 public class NGSIMySQLSink extends NGSISink {
     
+    private static final String DEFAULT_SQL_MODE = "";
     private static final String DEFAULT_ROW_ATTR_PERSISTENCE = "row";
     private static final String DEFAULT_PASSWORD = "";
     private static final String DEFAULT_PORT = "3306";
@@ -63,6 +64,7 @@ public class NGSIMySQLSink extends NGSISink {
     private String mysqlPort;
     private String mysqlUsername;
     private String mysqlPassword;
+    private String mysqlMode;
     private int maxPoolSize;
     private boolean rowAttrPersistence;
     private static volatile SQLBackendImpl mySQLPersistenceBackend;
@@ -164,6 +166,10 @@ public class NGSIMySQLSink extends NGSISink {
         mysqlPassword = context.getString("mysql_password", DEFAULT_PASSWORD);
         LOGGER.debug("[" + this.getName() + "] Reading configuration (mysql_password=" + mysqlPassword + ")");
         
+
+        mysqlMode = context.getString("mysql_mode", DEFAULT_SQL_MODE);
+        LOGGER.debug("[" + this.getName() + "] Reading configuration (mysql_mode=" + mysqlMode + ")");
+        
         maxPoolSize = context.getInteger("mysql_maxPoolSize", DEFAULT_MAX_POOL_SIZE);
         LOGGER.debug("[" + this.getName() + "] Reading configuration (mysql_maxPoolSize=" + maxPoolSize + ")");
         
@@ -207,7 +213,7 @@ public class NGSIMySQLSink extends NGSISink {
     @Override
     public void start() {
         try {
-            createPersistenceBackend(mysqlHost, mysqlPort, mysqlUsername, mysqlPassword, maxPoolSize);
+            createPersistenceBackend(mysqlHost, mysqlPort, mysqlUsername, mysqlPassword, maxPoolSize, mysqlMode);
             LOGGER.debug("[" + this.getName() + "] MySQL persistence backend created");
         } catch (Exception e) {
             LOGGER.error("Error while creating the MySQL persistence backend. Details="
@@ -226,9 +232,9 @@ public class NGSIMySQLSink extends NGSISink {
     /**
      * Initialices a lazy singleton to share among instances on JVM
      */
-    private static synchronized void createPersistenceBackend(String sqlHost, String sqlPort, String sqlUsername, String sqlPassword, int maxPoolSize) {
+    private static synchronized void createPersistenceBackend(String sqlHost, String sqlPort, String sqlUsername, String sqlPassword, int maxPoolSize, String sqlMode) {
         if (mySQLPersistenceBackend == null) {
-            mySQLPersistenceBackend = new SQLBackendImpl(sqlHost, sqlPort, sqlUsername, sqlPassword, maxPoolSize, MYSQL_INSTANCE_NAME, MYSQL_DRIVER_NAME, null);
+            mySQLPersistenceBackend = new SQLBackendImpl(sqlHost, sqlPort, sqlUsername, sqlPassword, maxPoolSize, MYSQL_INSTANCE_NAME, MYSQL_DRIVER_NAME, null, sqlMode);
         }
     }
 

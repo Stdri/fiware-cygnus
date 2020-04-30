@@ -53,12 +53,27 @@ public class SQLBackendImpl implements SQLBackend{
      * @param sqlUsername
      * @param sqlPassword
      */
-    public SQLBackendImpl(String sqlHost, String sqlPort, String sqlUsername, String sqlPassword, int maxPoolSize, String sqlInstance, String sqlDriverName, String defaultSQLDataBase) {
-        driver = new SQLBackendImpl.SQLDriver(sqlHost, sqlPort, sqlUsername, sqlPassword, maxPoolSize, sqlInstance, sqlDriverName, defaultSQLDataBase);
+    public SQLBackendImpl(String sqlHost, String sqlPort, String sqlUsername, String sqlPassword, int maxPoolSize, String sqlInstance, String sqlDriverName, String defaultSQLDataBase, String sqlMode) {
+        driver = new SQLBackendImpl.SQLDriver(sqlHost, sqlPort, sqlUsername, sqlPassword, maxPoolSize, sqlInstance, sqlDriverName, defaultSQLDataBase, sqlMode);
         cache = new SQLCache();
         this.sqlInstance = sqlInstance;
     } // SQLBackendImpl
 
+    /**
+     * Constructor.
+     * 
+     * @param sqlHost
+     * @param sqlPort
+     * @param sqlUsername
+     * @param sqlPassword
+     * @param maxPoolSize
+     * @param sqlInstance
+     * @param sqlDriverName
+     * @param defaultSQLDataBase
+     */
+    public SQLBackendImpl(String sqlHost, String sqlPort, String sqlUsername, String sqlPassword, int maxPoolSize, String sqlInstance, String sqlDriverName, String defaultSQLDataBase) {
+        this(sqlHost, sqlPort, sqlUsername, sqlPassword, maxPoolSize, sqlInstance, sqlDriverName, defaultSQLDataBase, "");
+    }
     /**
      * Releases resources
      */
@@ -528,9 +543,10 @@ public class SQLBackendImpl implements SQLBackend{
         private final String sqlPassword;
         private final String sqlInstance;
         private final String sqlDriverName;
+        private final String sqlMode;
         private final String defaultSQLDataBase;
         private final int maxPoolSize;
-
+        
         /**
          * Constructor.
          *
@@ -541,8 +557,9 @@ public class SQLBackendImpl implements SQLBackend{
          * @param maxPoolSize
          * @param sqlInstance
          * @param sqlDriverName
+         * @param sqlMode
          */
-        public SQLDriver(String sqlHost, String sqlPort, String sqlUsername, String sqlPassword, int maxPoolSize, String sqlInstance, String sqlDriverName, String defaultSQLDataBase) {
+        public SQLDriver(String sqlHost, String sqlPort, String sqlUsername, String sqlPassword, int maxPoolSize, String sqlInstance, String sqlDriverName, String defaultSQLDataBase, String sqlMode) {
             datasources = new HashMap<>();
             pools = new HashMap<>();
             this.sqlHost = sqlHost;
@@ -553,7 +570,29 @@ public class SQLBackendImpl implements SQLBackend{
             this.sqlInstance = sqlInstance;
             this.sqlDriverName = sqlDriverName;
             this.defaultSQLDataBase = defaultSQLDataBase;
+            
+            if (sqlMode == null){
+                this.sqlMode = "";
+            } else {
+                this.sqlMode = sqlMode.trim();
+            }
         } // SQLDriver
+
+        /**
+         * Constructor.
+         * 
+         * @param sqlHost
+         * @param sqlPort
+         * @param sqlUsername
+         * @param sqlPassword
+         * @param maxPoolSize
+         * @param sqlInstance
+         * @param sqlDriverName
+         * @param defaultSQLDataBase
+         */
+        public SQLDriver(String sqlHost, String sqlPort, String sqlUsername, String sqlPassword, int maxPoolSize, String sqlInstance, String sqlDriverName, String defaultSQLDataBase) {
+            this(sqlHost, sqlPort, sqlUsername, sqlPassword, maxPoolSize, sqlInstance, sqlDriverName, defaultSQLDataBase, "");
+        }
 
         /**
          * Gets a connection to the SQL server.
@@ -676,10 +715,16 @@ public class SQLBackendImpl implements SQLBackend{
                 gPool = pools.get(destination);
             }else{
                 String jdbcUrl = "";
+                String variables = "";
+                
+                if (!"".equals(this.sqlMode)){
+                    variables = "&sessionVariables=sql_mode='" + this.sqlMode + "'";
+                }
+                
                 if (sqlInstance.equals("mysql")) {
-                    jdbcUrl = "jdbc:" + sqlInstance + "://" + sqlHost + ":" + sqlPort + "/" + destination;
+                    jdbcUrl = "jdbc:" + sqlInstance + "://" + sqlHost + ":" + sqlPort + "/" + destination + variables;
                 } else {
-                    jdbcUrl = "jdbc:" + sqlInstance + "://" + sqlHost + ":" + sqlPort + "/" + defaultSQLDataBase;
+                    jdbcUrl = "jdbc:" + sqlInstance + "://" + sqlHost + ":" + sqlPort + "/" + defaultSQLDataBase + variables;
                 }
                 Class.forName(sqlDriverName);
 
